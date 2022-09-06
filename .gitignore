@@ -1,1 +1,4 @@
 QT/build-DynamicInteractionGraph*
+main
+main.o
+.vscode/settings.json
