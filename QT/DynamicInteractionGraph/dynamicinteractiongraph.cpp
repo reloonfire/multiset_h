@@ -3,6 +3,8 @@
 
 #include <QTimer>
 
+#define MAX_PER_INTERACTION 5
+
 DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::DynamicInteractionGraph)
@@ -11,12 +13,11 @@ DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
 
     scene = new QGraphicsScene(this);
     ui->graphicsView->setScene(scene);
-
-    addNode(0, 0);
-    addNode(0, 200);
-    addArc(nodes.at(0), nodes.at(1));
-    drawArcs();
-    drawNodes();
+    setCentralWidget(ui->graphicsView);
+    nodesGroup = new QGraphicsItemGroup();
+    arcsGroup = new QGraphicsItemGroup();
+    scene->addItem(arcsGroup);
+    scene->addItem(nodesGroup);
     QTimer *t = new QTimer(this);
     connect(t, SIGNAL(timeout()), this, SLOT(step()));
     t->start(1000);
@@ -24,31 +25,62 @@ DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
 
 void DynamicInteractionGraph::addNode(int xPos, int yPos) {
     node tmp(xPos, yPos);
-    nodes.append(tmp);
+    if (!tmp.circCollide(nodes))
+        nodes.append(tmp);
 }
 
 void DynamicInteractionGraph::addArc(const node &start, const node &end) {
-    arc tmp(start, end);
-    arcs.append(tmp);
+    if (start != end) {
+        arc tmp(start, end);
+        if (!arcs.contains(tmp))
+            arcs.append(tmp);
+    }
 }
 
 void DynamicInteractionGraph::drawNodes() {
     for(node n : nodes) {
-       scene->addItem(n.ellipse);
+        nodesGroup->addToGroup(n.ellipse);
     }
 }
 
 void DynamicInteractionGraph::drawArcs() {
     for (arc a : arcs) {
-        scene->addItem(a.line);
-        scene->addItem(a.tag);
+        arcsGroup->addToGroup(a.line);
+        arcsGroup->addToGroup(a.tag);
     }
 }
 
 void DynamicInteractionGraph::step() {
-    for (arc a : arcs) {
+    // SETUP RNG
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 gen(rd()); // seed the generator
+    std::uniform_int_distribution<> gen_distr(0, MAX_PER_INTERACTION); // define the range
+    std::uniform_int_distribution<> x_distr(0, 1000);
+    std::uniform_int_distribution<> y_distr(0, 500);
+
+    int times = gen_distr(gen);
+    for (int i = 0; i < times; ++i) {
+        if (nodes.size() <= 30) {
+            int x = x_distr(gen);
+            int y = y_distr(gen);
+            addNode(x, y);
+        }
+    }
+
+    std::uniform_int_distribution<> node_index_distr(0, nodes.size()-1);
+    times = gen_distr(gen);
+    for (int i = 0; i < times; ++i) {
+        addArc(nodes.at(node_index_distr(gen)), nodes.at(node_index_distr(gen)));
+    }
+    std::uniform_int_distribution<> arc_index_distr(0, arcs.size()-1);
+    times = gen_distr(gen);
+    for (int i = 0; i < times; ++i) {
+        arc a = arcs.at(arc_index_distr(gen));
         a.increaseInteraction();
     }
+    drawArcs();
+    drawNodes();
+
 }
 
 DynamicInteractionGraph::~DynamicInteractionGraph()

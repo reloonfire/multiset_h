@@ -6,7 +6,7 @@
 #include <QGraphicsEllipseItem>
 #include <QGraphicsLineItem>
 #include <QGraphicsTextItem>
-#include <stdlib.h>
+#include <random>
 #include <QVector>
 
 QT_BEGIN_NAMESPACE
@@ -49,31 +49,27 @@ private:
             }
         }
 
-        QColor colorize(unsigned int ratio) {
-            // ration è un numero tra 0.0 e 1.0, quindi va sempre diviso per un determinato range
-            //we want to normalize ratio so that it fits in to 6 regions
-            //where each region is 256 units long
-            // https://stackoverflow.com/questions/40629345/fill-array-dynamicly-with-gradient-color-c
-            int normalized = int(ratio * 256 * 6);
+        QColor colorize(int v) {
+            qreal rv = qreal(v) / 6;
+            QColor c = QColor::fromHsl(205 - (205 - 42) * rv, 200, 135);
+            return c;
+        }
 
-            //find the region for this position
-            int region = normalized / 256;
-
-            //find the distance to the start of the closest region
-            int x = normalized % 256;
-
-            uint8_t r = 0, g = 0, b = 0;
-            switch (region)
-            {
-            case 0: r = 255; g = 0;   b = 0;   g += x; break;
-            case 1: r = 255; g = 255; b = 0;   r -= x; break;
-            case 2: r = 0;   g = 255; b = 0;   b += x; break;
-            case 3: r = 0;   g = 255; b = 255; g -= x; break;
-            case 4: r = 0;   g = 0;   b = 255; r += x; break;
-            case 5: r = 255; g = 0;   b = 255; b -= x; break;
+        inline bool circCollide(QList<node> nodes) {
+            QPointF c1 = this->ellipse->boundingRect().center();
+            foreach (node t, nodes) {
+                qreal distance = QLineF(c1, t.ellipse->boundingRect().center()).length();
+                if ( distance <= 100 ) return true;
             }
+            return false;
+        }
 
-            return QColor(r, g, b);
+        bool operator==(const node &other) const {
+            return (this->xPos == other.xPos && this->yPos == other.yPos);
+        }
+
+        bool operator!=(const node &other) const {
+            return !(*this == other);
         }
     };
 
@@ -107,12 +103,16 @@ private:
         }
 
         void increaseInteraction() {
-            interaction = interaction + 1;
+            this->interaction++;
             // devo cambiare i colori dei nodi collegati a questo arco
             start.changeColor(interaction);
             end.changeColor(interaction);
             // Cambio testo
             tag->setPlainText(QString("%1").arg(interaction));
+        }
+
+        bool operator==(const arc &other) const {
+            return (this->start == other.start && this->end == other.end);
         }
     };
 
@@ -126,10 +126,13 @@ private:
 
     Ui::DynamicInteractionGraph *ui;
     QGraphicsScene *scene;
-    QVector<node> nodes;
-    QVector<arc> arcs;
+    QGraphicsItemGroup *nodesGroup;
+    QGraphicsItemGroup *arcsGroup;
+    QList<node> nodes;
+    QList<arc> arcs;
 public slots:
     void step();
 
 };
+
 #endif // DYNAMICINTERACTIONGRAPH_H
