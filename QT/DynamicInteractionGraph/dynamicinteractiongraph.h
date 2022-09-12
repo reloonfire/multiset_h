@@ -6,6 +6,7 @@
 #include <QGraphicsEllipseItem>
 #include <QGraphicsLineItem>
 #include <QGraphicsTextItem>
+#include <cstdlib>
 #include <random>
 #include <QVector>
 
@@ -103,7 +104,7 @@ private:
         }
 
         void increaseInteraction() {
-            this->interaction++;
+            ++interaction;
             // devo cambiare i colori dei nodi collegati a questo arco
             start.changeColor(interaction);
             end.changeColor(interaction);
@@ -128,8 +129,8 @@ private:
     QGraphicsScene *scene;
     QGraphicsItemGroup *nodesGroup;
     QGraphicsItemGroup *arcsGroup;
-    QList<node> nodes;
-    QList<arc> arcs;
+    QVector<node> nodes;
+    QVector<arc> arcs;
 public slots:
     void step();
 

@@ -2,6 +2,7 @@
 #include "ui_dynamicinteractiongraph.h"
 
 #include <QTimer>
+#include <QDebug>
 
 #define MAX_PER_INTERACTION 5
 
@@ -10,7 +11,6 @@ DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
     , ui(new Ui::DynamicInteractionGraph)
 {
     ui->setupUi(this);
-
     scene = new QGraphicsScene(this);
     ui->graphicsView->setScene(scene);
     setCentralWidget(ui->graphicsView);
@@ -25,15 +25,17 @@ DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
 
 void DynamicInteractionGraph::addNode(int xPos, int yPos) {
     node tmp(xPos, yPos);
-    if (!tmp.circCollide(nodes))
-        nodes.append(tmp);
+    if (!tmp.circCollide(nodes) && !nodes.contains(tmp))
+        nodes.push_back(tmp);
 }
 
 void DynamicInteractionGraph::addArc(const node &start, const node &end) {
     if (start != end) {
         arc tmp(start, end);
-        if (!arcs.contains(tmp))
-            arcs.append(tmp);
+        if (!arcs.contains(tmp)) {
+            arcs.push_back(tmp);
+            qDebug() << "Adding arc to vector";
+        }
     }
 }
 
@@ -53,30 +55,27 @@ void DynamicInteractionGraph::drawArcs() {
 void DynamicInteractionGraph::step() {
     // SETUP RNG
     std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<> gen_distr(0, MAX_PER_INTERACTION); // define the range
-    std::uniform_int_distribution<> x_distr(0, 1000);
-    std::uniform_int_distribution<> y_distr(0, 500);
+    srand(rd());
 
-    int times = gen_distr(gen);
+    int times = rand() % 5;
     for (int i = 0; i < times; ++i) {
         if (nodes.size() <= 30) {
-            int x = x_distr(gen);
-            int y = y_distr(gen);
+            int x = rand() % ui->graphicsView->width();
+            int y = rand() % ui->graphicsView->height();
             addNode(x, y);
         }
     }
 
-    std::uniform_int_distribution<> node_index_distr(0, nodes.size()-1);
-    times = gen_distr(gen);
+    times = rand() % 5;
     for (int i = 0; i < times; ++i) {
-        addArc(nodes.at(node_index_distr(gen)), nodes.at(node_index_distr(gen)));
+        addArc(nodes.at(rand() % nodes.size()), nodes.at(rand() % nodes.size()));
     }
-    std::uniform_int_distribution<> arc_index_distr(0, arcs.size()-1);
-    times = gen_distr(gen);
-    for (int i = 0; i < times; ++i) {
-        arc a = arcs.at(arc_index_distr(gen));
-        a.increaseInteraction();
+    if (!arcs.empty()) {
+        times = rand() % 5;
+        for (int i = 0; i < times; ++i) {
+            arc  * a = &arcs[rand() % arcs.size()];
+            a->increaseInteraction();
+        }
     }
     drawArcs();
     drawNodes();
@@ -85,6 +84,14 @@ void DynamicInteractionGraph::step() {
 
 DynamicInteractionGraph::~DynamicInteractionGraph()
 {
+    QList<QGraphicsItem*> all = scene->items();
+    for (int i = 0; i < all.size(); i++)
+    {
+        QGraphicsItem *gi = all[i];
+        if(gi->parentItem()==NULL) {
+            delete gi;
+        }
+    }
     delete ui;
 }
 
