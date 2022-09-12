@@ -1,4 +1,5 @@
 #include "dynamicinteractiongraph.h"
+#include "qpainter.h"
 #include "ui_dynamicinteractiongraph.h"
 
 #include <QTimer>
@@ -11,13 +12,11 @@ DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
     , ui(new Ui::DynamicInteractionGraph)
 {
     ui->setupUi(this);
-    scene = new QGraphicsScene(this);
-    ui->graphicsView->setScene(scene);
-    setCentralWidget(ui->graphicsView);
-    nodesGroup = new QGraphicsItemGroup();
-    arcsGroup = new QGraphicsItemGroup();
-    scene->addItem(arcsGroup);
-    scene->addItem(nodesGroup);
+    canvas = new QLabel();
+    canvas->setMargin(10);
+    canvas->setScaledContents(true);
+    setCentralWidget(canvas);
+
     QTimer *t = new QTimer(this);
     connect(t, SIGNAL(timeout()), this, SLOT(step()));
     t->start(1000);
@@ -25,73 +24,96 @@ DynamicInteractionGraph::DynamicInteractionGraph(QWidget *parent)
 
 void DynamicInteractionGraph::addNode(int xPos, int yPos) {
     node tmp(xPos, yPos);
-    if (!tmp.circCollide(nodes) && !nodes.contains(tmp))
+    if (tmp.isValid(nodes))
         nodes.push_back(tmp);
 }
 
-void DynamicInteractionGraph::addArc(const node &start, const node &end) {
-    if (start != end) {
-        arc tmp(start, end);
+void DynamicInteractionGraph::addArc(int startIndex, int endIndex) {
+    if (startIndex != endIndex) {
+        arc tmp(startIndex, endIndex);
         if (!arcs.contains(tmp)) {
             arcs.push_back(tmp);
-            qDebug() << "Adding arc to vector";
+
         }
     }
 }
 
-void DynamicInteractionGraph::drawNodes() {
-    for(node n : nodes) {
-        nodesGroup->addToGroup(n.ellipse);
-    }
-}
-
-void DynamicInteractionGraph::drawArcs() {
-    for (arc a : arcs) {
-        arcsGroup->addToGroup(a.line);
-        arcsGroup->addToGroup(a.tag);
-    }
+void DynamicInteractionGraph::increaseInteraction(unsigned int arcIndex) {
+    arc &a = arcs[arcIndex];
+    ++(a.interaction);
+    if (nodes[a.startNodeIndex].interactionLevel < a.interaction)
+        nodes[a.startNodeIndex].interactionLevel = a.interaction;
+    if (nodes[a.endNodeIndex].interactionLevel < a.interaction)
+        nodes[a.endNodeIndex].interactionLevel = a.interaction;
 }
 
 void DynamicInteractionGraph::step() {
+    QPainter painter;
+    QPicture picture;
     // SETUP RNG
     std::random_device rd; // obtain a random number from hardware
     srand(rd());
 
     int times = rand() % 5;
-    for (int i = 0; i < times; ++i) {
-        if (nodes.size() <= 30) {
-            int x = rand() % ui->graphicsView->width();
-            int y = rand() % ui->graphicsView->height();
+    for (int i = 0; i < times; ++i)
+    {
+        if (nodes.size() <= 30)
+        {
+            int x = rand() % 500;
+            int y = rand() % 500;
             addNode(x, y);
         }
     }
-
-    times = rand() % 5;
-    for (int i = 0; i < times; ++i) {
-        addArc(nodes.at(rand() % nodes.size()), nodes.at(rand() % nodes.size()));
-    }
-    if (!arcs.empty()) {
+    if (!nodes.empty())
+    {
         times = rand() % 5;
-        for (int i = 0; i < times; ++i) {
-            arc  * a = &arcs[rand() % arcs.size()];
-            a->increaseInteraction();
+        for (int i = 0; i < times; ++i)
+        {
+            addArc(rand() % nodes.size(), rand() % nodes.size());
         }
     }
-    drawArcs();
-    drawNodes();
+
+    if (!arcs.empty())
+    {
+        times = rand() % 5;
+        for (int i = 0; i < times; ++i)
+        {
+            increaseInteraction(rand() % arcs.size());
+        }
+    }
+
+    painter.begin(&picture);
+    painter.setPen("transparent");
+    painter.drawPoint(0,0);
+    painter.drawPoint(500, 500);
+    draw(painter);
+    canvas->setPicture(picture);
+    painter.end();
+}
+
+void DynamicInteractionGraph::draw(QPainter &painter) {
+
+    painter.setPen(Qt::black);
+    painter.setBrush(Qt::cyan);
+    // paint all points in the vector
+
+    for (int i = 0; i < arcs.size(); i++) {
+        painter.setPen(Qt::black);
+        node n1 = nodes[arcs[i].startNodeIndex];
+        node n2 = nodes[arcs[i].endNodeIndex];
+        painter.drawLine(n1.p, n2.p);
+        // draw the interactions number at the center of the arch, if it changes delete old one
+        painter.drawText((n1.p.x() + n2.p.x())/2, (n1.p.y() + n2.p.y())/2, QString::number(arcs[i].interaction));
+    }
+
+    for (int i = 0; i < nodes.size(); i++) {
+        painter.setBrush(QBrush(nodes[i].colorize()));
+        painter.drawEllipse(nodes[i].p, 10, 10);
+    }
 
 }
 
-DynamicInteractionGraph::~DynamicInteractionGraph()
-{
-    QList<QGraphicsItem*> all = scene->items();
-    for (int i = 0; i < all.size(); i++)
-    {
-        QGraphicsItem *gi = all[i];
-        if(gi->parentItem()==NULL) {
-            delete gi;
-        }
-    }
+DynamicInteractionGraph::~DynamicInteractionGraph() {
     delete ui;
 }
 

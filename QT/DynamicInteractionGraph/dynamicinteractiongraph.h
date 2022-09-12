@@ -2,13 +2,11 @@
 #define DYNAMICINTERACTIONGRAPH_H
 
 #include <QMainWindow>
-#include <QGraphicsScene>
-#include <QGraphicsEllipseItem>
-#include <QGraphicsLineItem>
-#include <QGraphicsTextItem>
 #include <cstdlib>
 #include <random>
 #include <QVector>
+#include <QPoint>
+#include <QLabel>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class DynamicInteractionGraph; }
@@ -25,48 +23,31 @@ public:
 private:
 
     struct node {
-        qreal xPos;
-        qreal yPos;
+        QPoint p;
 
         unsigned int interactionLevel = 0;
         unsigned int diameter = 20;
-        QGraphicsEllipseItem *ellipse;
 
-        node(qreal xPos, qreal yPos) : xPos(xPos), yPos(yPos) {
-            QBrush greenBrush(colorize((this->interactionLevel)/20));
-            QPen blackPen(Qt::black);
-            blackPen.setWidth(3);
-
-            ellipse = new QGraphicsEllipseItem(xPos, yPos, diameter, diameter, nullptr);
-            ellipse->setBrush(greenBrush);
-            ellipse->setPen(blackPen);
+        node(qreal xPos, qreal yPos) : p(xPos, yPos) {
         }
 
-        void changeColor(unsigned int interactionLevel) {
-            if (this->interactionLevel < interactionLevel) {
-                this->interactionLevel = interactionLevel;
-                // Cambio colore seguendo la palette
-                this->ellipse->setBrush(QBrush(colorize((this->interactionLevel)/5)));
-            }
-        }
-
-        QColor colorize(int v) {
-            qreal rv = qreal(v) / 6;
+        QColor colorize() {
+            qreal rv = qreal(interactionLevel) / 8;
+            if (rv >= 1) rv = 1;
             QColor c = QColor::fromHsl(205 - (205 - 42) * rv, 200, 135);
             return c;
         }
 
-        inline bool circCollide(QList<node> nodes) {
-            QPointF c1 = this->ellipse->boundingRect().center();
-            foreach (node t, nodes) {
-                qreal distance = QLineF(c1, t.ellipse->boundingRect().center()).length();
-                if ( distance <= 100 ) return true;
+        bool isValid(QVector<node> nodes) const {
+            for (node n : nodes) {
+                if (qAbs(p.x() - n.p.x()) + qAbs(p.y() - n.p.y()) < 50)
+                    return false;
             }
-            return false;
+            return true;
         }
 
         bool operator==(const node &other) const {
-            return (this->xPos == other.xPos && this->yPos == other.yPos);
+            return (this->p == other.p);
         }
 
         bool operator!=(const node &other) const {
@@ -76,59 +57,27 @@ private:
 
     struct arc {
         unsigned int interaction;
-        node start;
-        node end;
-        QGraphicsLineItem * line;
-        QGraphicsTextItem * tag;
+        unsigned int startNodeIndex;
+        unsigned int endNodeIndex;
 
-        arc(const node &start, const node &end) : interaction(1), start(start), end(end) {
-            QPen blackPen(Qt::black);
-            blackPen.setWidth(2);
-
-            QPoint pnt1((start.xPos+(start.diameter/2)), (start.yPos+(start.diameter/2)));
-            QPoint pnt2((end.xPos+(end.diameter/2)), (end.yPos+(end.diameter/2)));
-
-            line = new QGraphicsLineItem(pnt1.x(), pnt1.y(), pnt2.x(), pnt2.y());
-            line->setPen(blackPen);
-
-            tag = new QGraphicsTextItem(line);
-            tag->setPlainText(QString("%1").arg(interaction));
-            tag->setPos(centerText());
-        }
-
-        QPoint centerText() {
-            //qreal c_ang_perp = 1 - ((start.yPos - end.yPos) / (start.xPos - end.xPos));
-            QPoint pnt1(((start.xPos+end.xPos)/2), ((start.yPos+end.yPos)/2));
-
-            return pnt1;
-        }
-
-        void increaseInteraction() {
-            ++interaction;
-            // devo cambiare i colori dei nodi collegati a questo arco
-            start.changeColor(interaction);
-            end.changeColor(interaction);
-            // Cambio testo
-            tag->setPlainText(QString("%1").arg(interaction));
+        arc(unsigned int start, unsigned int end) : interaction(1), startNodeIndex(start), endNodeIndex(end) {
         }
 
         bool operator==(const arc &other) const {
-            return (this->start == other.start && this->end == other.end);
+            return (this->startNodeIndex == other.startNodeIndex && this->endNodeIndex == other.endNodeIndex) || (this->startNodeIndex == other.endNodeIndex && this->endNodeIndex == other.startNodeIndex);
         }
     };
 
     void addNode(int posX, int posY);
 
-    void addArc(const node &start, const node &end);
+    void addArc(int startIndex, int endIndex);
 
-    void drawNodes();
+    void draw(QPainter &painter);
 
-    void drawArcs();
+    void increaseInteraction(unsigned int arcIndex);
 
     Ui::DynamicInteractionGraph *ui;
-    QGraphicsScene *scene;
-    QGraphicsItemGroup *nodesGroup;
-    QGraphicsItemGroup *arcsGroup;
+    QLabel *canvas;
     QVector<node> nodes;
     QVector<arc> arcs;
 public slots:
