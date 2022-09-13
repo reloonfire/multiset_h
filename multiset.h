@@ -5,17 +5,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cstddef>
-
-class element_not_found : public std::exception
-{
-public:
-    element_not_found() {}
-
-    const char* what() const throw()
-    {
-        return "Element not found";
-    }
-};
+#include "element_not_found_exception.h"
 
 template <typename T, typename Comp, typename Eq>
 class multiset
@@ -46,7 +36,8 @@ private:
             }
         }
 
-        node &operator==(const node &other) {
+        node &operator==(const node &other)
+        {
             return (_value == other._value && _occurrences == other._occurrences);
         }
     };
@@ -59,7 +50,7 @@ private:
 public:
     multiset() : _head(nullptr), _size(0) {}
 
-    multiset(const multiset &other)
+    multiset(const multiset &other) : _size(0), _head(nullptr)
     {
         node *curr = other._head;
 
@@ -106,28 +97,30 @@ public:
         return *this;
     }
 
-    bool operator==(const multiset &other) const
+    template <typename T2, typename Comp2, typename Eq2>
+    bool operator==(const multiset<T2, Comp2, Eq2> &other) const
     {
-        if (_size != other._size)
-            return false;
-        node *curr = _head;
-        while (curr != nullptr)
+        multiset tmp(other.begin(), other.end());
+        const_iterator it = begin();
+        const_iterator it2 = tmp.begin();
+        if (size() != tmp.size())
         {
-            node *other_curr = other._head;
-            while (other_curr != nullptr)
-            {
-                if (curr->_value == other_curr->_value && curr->_occurrences == other_curr->_occurrences)
-                    break;
-                other_curr = other_curr->_next;
-            }
-            if (other_curr == nullptr)
-                return false;
-            curr = curr->_next;
+            return false;
         }
-        return true;
+        while (it != end() && it2 != tmp.end())
+        {
+            if (*it != *it2)
+            {
+                return false;
+            }
+            ++it;
+            ++it2;
+        }
+        return it == end() && it2 == tmp.end();
     }
 
-    bool operator!=(const multiset &other) const
+    template <typename T2, typename Comp2, typename Eq2>
+    bool operator!=(const multiset<T2, Comp2, Eq2> &other) const
     {
         return !(*this == other);
     }
@@ -164,7 +157,8 @@ public:
         {
             _head = tmp;
             ++_size;
-        }else
+        }
+        else
         {
             node *curr = _head;
             node *prev = _head;
@@ -178,7 +172,7 @@ public:
                     return;
                 }
 
-                if (_cmp(curr->_value, tmp->_value))
+                if (!_cmp(curr->_value, tmp->_value))
                 {
                     prev = curr;
                     curr = curr->_next;
@@ -242,9 +236,9 @@ public:
             curr = curr->_next;
         }
         // se arrivati a questo punto non è stato trovato l'elemento lancio una eccezione
-        throw element_not_found();
+        throw element_not_found_exception("Error, element not found in multiset");
     }
-    
+
     void clear()
     {
         node *curr = _head;
@@ -299,10 +293,10 @@ public:
     {
     public:
         typedef std::forward_iterator_tag iterator_category;
-        typedef T                         value_type;
-        typedef ptrdiff_t                 difference_type;
-        typedef const T*                  pointer;
-        typedef const T&                  reference;
+        typedef T value_type;
+        typedef ptrdiff_t difference_type;
+        typedef const T *pointer;
+        typedef const T &reference;
 
         const_iterator() : ptr(nullptr) {}
         const_iterator(const const_iterator &other) : ptr(other.ptr) {}
@@ -325,8 +319,7 @@ public:
             {
                 _counter++;
             }
-            
-            ptr = ptr->_next;
+
             return *this;
         }
         const_iterator operator++(int)
@@ -341,7 +334,7 @@ public:
             {
                 _counter++;
             }
-            ptr = ptr->_next;
+
             return tmp;
         }
         bool operator==(const const_iterator &other) const
@@ -359,6 +352,11 @@ public:
         pointer operator->() const
         {
             return &(ptr->_value);
+        }
+
+        int occurrences() const
+        {
+            return ptr->_occurrences;
         }
 
     private:
