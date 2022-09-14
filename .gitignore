@@ -2,3 +2,4 @@ QT/build-DynamicInteractionGraph*
 main
 main.o
 .vscode*
+html/
